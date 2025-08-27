@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 ## Full‑Stack Setup (Frontend + Backend)
 
 ### Backend (Express + MongoDB)
@@ -69,3 +70,6 @@ npm run dev
 Default dev URL: `http://localhost:5173`
 
 Point API calls at `http://localhost:5000/api/...` and include the JWT header after login.
+=======
+# MessMate
+>>>>>>> ba1c7b63302ab326fd457925e9f3cf76d6450abe
