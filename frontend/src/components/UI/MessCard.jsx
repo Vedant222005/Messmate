@@ -1,0 +1,74 @@
+import React from 'react';
+import { Star, MapPin, DollarSign, Users } from 'lucide-react';
+
+const MessCard = ({ mess, onSubscribe, showSubscribeButton = true }) => {
+  return (
+    <div className="card p-6">
+      <div className="relative">
+        <img
+          src={mess.image}
+          alt={mess.name}
+          className="w-full h-48 object-cover rounded-lg mb-4"
+        />
+        {mess.isSubscribed && (
+          <span className="absolute top-3 right-3 bg-primary-500 text-white px-3 py-1 rounded-full text-sm font-medium">
+            Subscribed
+          </span>
+        )}
+      </div>
+      
+      <h3 className="text-xl font-semibold text-gray-800 mb-2">{mess.name}</h3>
+      
+      <div className="flex items-center mb-2">
+        <Star className="w-4 h-4 text-yellow-500 fill-current" />
+        <span className="ml-1 text-sm font-medium text-gray-700">{mess.rating}</span>
+      </div>
+      
+      <div className="flex items-center text-gray-600 mb-3">
+        <MapPin className="w-4 h-4 mr-1" />
+        <span className="text-sm">{mess.location}</span>
+      </div>
+      
+      <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center text-primary-500">
+          <DollarSign className="w-4 h-4 mr-1" />
+          <span className="font-semibold">₹{mess.monthlyPrice}/month</span>
+        </div>
+      </div>
+      
+      {/* Menu Preview */}
+      <div className="mb-4">
+        <h4 className="font-medium text-gray-800 mb-2">Today's Menu</h4>
+        <div className="grid grid-cols-3 gap-2">
+          {mess.menu.slice(0, 3).map((item, index) => (
+            <div key={index} className="text-center">
+              <img
+                src={item.image}
+                alt={item.dish}
+                className="w-full h-12 object-cover rounded-md mb-1"
+              />
+              <p className="text-xs text-gray-600 truncate">{item.dish}</p>
+            </div>
+          ))}
+        </div>
+      </div>
+      
+      {showSubscribeButton && !mess.isSubscribed && (
+        <button
+          onClick={() => onSubscribe(mess.id)}
+          className="w-full btn btn-primary"
+        >
+          Subscribe Now
+        </button>
+      )}
+      
+      {mess.isSubscribed && (
+        <button className="w-full btn btn-secondary">
+          View Details
+        </button>
+      )}
+    </div>
+  );
+};
+
+export default MessCard;
