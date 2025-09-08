@@ -1,12 +1,14 @@
-
 import mongoose from 'mongoose';
 
 const connectDB = async () => {
   try {
-    const conn = await mongoose.connect(process.env.MONGO_URI || 'mongodb://localhost:27017/messApp', {
-      useNewUrlParser: true,
-      useUnifiedTopology: true,
-    });
+    const uri = process.env.MONGODB_URI;
+    if (!uri || typeof uri !== 'string') {
+      throw new Error('MONGO_URI is not set or is invalid. Ensure your .env has MONGO_URI=... and that dotenv is loading it.');
+    }
+
+    // Mongoose 8: no need for useNewUrlParser/useUnifiedTopology
+    const conn = await mongoose.connect(uri);
 
     console.log(`MongoDB Connected: ${conn.connection.host}`);
   } catch (error) {
@@ -16,3 +18,5 @@ const connectDB = async () => {
 };
 
 export default connectDB;
+
+

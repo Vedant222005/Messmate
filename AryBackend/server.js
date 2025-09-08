@@ -1,12 +1,17 @@
 import express from 'express';
 import cors from 'cors';
+import path from 'path';
+import { fileURLToPath } from 'url';
 import dotenv from 'dotenv';
 import connectDB from './config/db.js';
 import authRoutes from './routes/authRoutes.js';
 import messRoutes from './routes/messRoutes.js';
 import customerRoutes from './routes/customerRoutes.js';
 
-dotenv.config();
+// Load env from parent directory: d:\Messmate\Messmate\.env
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+dotenv.config({ path: path.join(__dirname, '..', '.env') });
 
 const app = express();
 
