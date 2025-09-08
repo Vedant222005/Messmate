@@ -205,60 +205,6 @@ const CustomerDashboard = () => {
           </div>
         </div>
 
-        {/* Today's Menu */}
-        {todaysMenu.length > 0 && (
-          <div className="card p-6 mb-8">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-2xl font-semibold text-gray-900">Today's Menu</h2>
-              <div className="flex items-center space-x-4">
-                <div className="flex items-center space-x-2">
-                  <Calendar className="w-4 h-4 text-gray-500" />
-                  <input
-                    type="date"
-                    value={selectedDate}
-                    onChange={(e) => setSelectedDate(e.target.value)}
-                    className="input-field text-sm py-2"
-                  />
-                </div>
-                <button
-                  onClick={handleAttendanceToggle}
-                  className={`flex items-center space-x-2 px-4 py-2 rounded-lg transition-all duration-200 ${
-                    attendance 
-                      ? 'bg-green-100 text-green-800 hover:bg-green-200' 
-                      : 'bg-red-100 text-red-800 hover:bg-red-200'
-                  }`}
-                >
-                  {attendance ? (
-                    <>
-                      <CheckCircle className="w-4 h-4" />
-                      <span>Present</span>
-                    </>
-                  ) : (
-                    <>
-                      <XCircle className="w-4 h-4" />
-                      <span>Absent</span>
-                    </>
-                  )}
-                </button>
-              </div>
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              {todaysMenu.map((item, index) => (
-                <div key={index} className="bg-gray-50 rounded-lg p-4 hover:shadow-md transition-shadow duration-200">
-                  <img
-                    src={item.image}
-                    alt={item.dish}
-                    className="w-full h-32 object-cover rounded-lg mb-3"
-                  />
-                  <h3 className="font-medium text-gray-900 mb-1">{item.dish}</h3>
-                  <p className="text-primary-600 font-semibold">₹{item.price}</p>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-
 
         {/* Tabs */}
         <div className="flex border-b border-gray-200 mb-6">
