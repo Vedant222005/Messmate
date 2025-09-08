@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Eye, EyeOff, Mail, Lock, User, Phone, MapPin, AlertCircle } from 'lucide-react';
+import { Eye, EyeOff, Mail, Lock, User, Phone, MapPin, AlertCircle, Clock, Calendar, DollarSign, Plus, Minus, Utensils } from 'lucide-react';
 import { authAPI } from '../utils/api';
 
 const RegisterPage = ({ onLogin }) => {
@@ -12,6 +12,29 @@ const RegisterPage = ({ onLogin }) => {
     password: '',
     confirmPassword: '',
     role: 'customer'
+  });
+  
+  // Additional state for mess provider registration
+  const [messData, setMessData] = useState({
+    messName: '',
+    messDescription: '',
+    messAddress: '',
+    cuisineTypes: [],
+    pricePerMeal: '',
+    capacity: '',
+    openingTime: '',
+    closingTime: '',
+    daysOpen: [],
+    contactPhone: '',
+    contactEmail: '',
+    specialFeatures: [],
+    dietaryOptions: [],
+    newCuisineType: '',
+    newSpecialFeature: '',
+    subscriptionPlans: [
+      { name: 'Weekly', durationDays: 7, price: '', description: 'Weekly subscription plan' },
+      { name: 'Monthly', durationDays: 30, price: '', description: 'Monthly subscription plan' }
+    ]
   });
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
@@ -31,6 +54,71 @@ const RegisterPage = ({ onLogin }) => {
     if (error) {
       setError('');
     }
+  };
+  
+  const handleMessDataChange = (e) => {
+    const { name, value } = e.target;
+    setMessData({
+      ...messData,
+      [name]: value
+    });
+  };
+  
+  const handleDayToggle = (day) => {
+    const updatedDays = [...messData.daysOpen];
+    if (updatedDays.includes(day)) {
+      const index = updatedDays.indexOf(day);
+      updatedDays.splice(index, 1);
+    } else {
+      updatedDays.push(day);
+    }
+    setMessData({
+      ...messData,
+      daysOpen: updatedDays
+    });
+  };
+  
+  const handleDietaryOptionToggle = (option) => {
+    const updatedOptions = [...messData.dietaryOptions];
+    if (updatedOptions.includes(option)) {
+      const index = updatedOptions.indexOf(option);
+      updatedOptions.splice(index, 1);
+    } else {
+      updatedOptions.push(option);
+    }
+    setMessData({
+      ...messData,
+      dietaryOptions: updatedOptions
+    });
+  };
+  
+  const handleAddCuisineType = () => {
+    if (messData.newCuisineType.trim() !== '') {
+      setMessData({
+        ...messData,
+        cuisineTypes: [...messData.cuisineTypes, messData.newCuisineType.trim()],
+        newCuisineType: ''
+      });
+    }
+  };
+  
+  const handleAddSpecialFeature = () => {
+    if (messData.newSpecialFeature.trim() !== '') {
+      setMessData({
+        ...messData,
+        specialFeatures: [...messData.specialFeatures, messData.newSpecialFeature.trim()],
+        newSpecialFeature: ''
+      });
+    }
+  };
+  
+  const handleSubscriptionPlanChange = (index, field, value) => {
+    const updatedPlans = [...messData.subscriptionPlans];
+    updatedPlans[index][field] = value;
+    setMessData({
+      ...messData,
+      subscriptionPlans: updatedPlans
+    });
   };
 
   const validatePassword = (password) => {
@@ -58,6 +146,22 @@ const RegisterPage = ({ onLogin }) => {
       return;
     }
     
+    // Validate mess data if provider role is selected
+    if (formData.role === 'provider') {
+      if (!messData.messName || !messData.messAddress || !messData.pricePerMeal || !messData.capacity || !messData.contactPhone) {
+        setError('Please fill all required mess details');
+        return;
+      }
+      
+      // Validate subscription plans
+      for (const plan of messData.subscriptionPlans) {
+        if (!plan.price) {
+          setError('Please set prices for all subscription plans');
+          return;
+        }
+      }
+    }
+    
     setIsLoading(true);
     
     try {
@@ -68,6 +172,39 @@ const RegisterPage = ({ onLogin }) => {
       
       // Store token in localStorage
       localStorage.setItem('messmate_token', token);
+      
+      // If provider, create mess
+      if (user.role === 'provider') {
+        try {
+          // Format mess data
+          const messPayload = {
+            name: messData.messName,
+            description: messData.messDescription,
+            address: messData.messAddress,
+            cuisineTypes: messData.cuisineTypes,
+            pricePerMeal: Number(messData.pricePerMeal),
+            capacity: Number(messData.capacity),
+            openingTime: messData.openingTime,
+            closingTime: messData.closingTime,
+            daysOpen: messData.daysOpen,
+            contactPhone: messData.contactPhone,
+            contactEmail: messData.contactEmail || user.email,
+            specialFeatures: messData.specialFeatures,
+            dietaryOptions: messData.dietaryOptions,
+            subscriptionPlans: messData.subscriptionPlans.map(plan => ({
+              ...plan,
+              price: Number(plan.price),
+              durationDays: Number(plan.durationDays)
+            }))
+          };
+          
+          // Create mess using API
+          await messAPI.createMess(messPayload);
+        } catch (messError) {
+          console.error('Error creating mess:', messError);
+          // Continue anyway, user can create mess later
+        }
+      }
       
       onLogin(user);
       setIsLoading(false);
@@ -153,6 +290,303 @@ const RegisterPage = ({ onLogin }) => {
               </label>
             </div>
           </div>
+          
+          {/* Mess Provider Form Fields - Only shown when provider role is selected */}
+          {formData.role === 'provider' && (
+            <div className="mt-6 border-t border-gray-200 pt-6">
+              <h3 className="text-lg font-medium text-gray-900 mb-4">Mess Details</h3>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="mb-4">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Mess Name*</label>
+                  <div className="relative">
+                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                      <Utensils className="h-5 w-5 text-gray-400" />
+                    </div>
+                    <input
+                      type="text"
+                      name="messName"
+                      value={messData.messName}
+                      onChange={handleMessDataChange}
+                      className="pl-10 w-full input"
+                      placeholder="Enter mess name"
+                      required
+                    />
+                  </div>
+                </div>
+                
+                <div className="mb-4">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Mess Address*</label>
+                  <div className="relative">
+                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                      <MapPin className="h-5 w-5 text-gray-400" />
+                    </div>
+                    <input
+                      type="text"
+                      name="messAddress"
+                      value={messData.messAddress}
+                      onChange={handleMessDataChange}
+                      className="pl-10 w-full input"
+                      placeholder="Enter mess address"
+                      required
+                    />
+                  </div>
+                </div>
+              </div>
+              
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
+                <textarea
+                  name="messDescription"
+                  value={messData.messDescription}
+                  onChange={handleMessDataChange}
+                  className="w-full input"
+                  placeholder="Describe your mess"
+                  rows="3"
+                />
+              </div>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="mb-4">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Price Per Meal*</label>
+                  <div className="relative">
+                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                      <DollarSign className="h-5 w-5 text-gray-400" />
+                    </div>
+                    <input
+                      type="number"
+                      name="pricePerMeal"
+                      value={messData.pricePerMeal}
+                      onChange={handleMessDataChange}
+                      className="pl-10 w-full input"
+                      placeholder="0.00"
+                      min="0"
+                      step="0.01"
+                      required
+                    />
+                  </div>
+                </div>
+                
+                <div className="mb-4">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Capacity*</label>
+                  <div className="relative">
+                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                      <User className="h-5 w-5 text-gray-400" />
+                    </div>
+                    <input
+                      type="number"
+                      name="capacity"
+                      value={messData.capacity}
+                      onChange={handleMessDataChange}
+                      className="pl-10 w-full input"
+                      placeholder="Maximum number of customers"
+                      min="1"
+                      required
+                    />
+                  </div>
+                </div>
+              </div>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="mb-4">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Opening Time</label>
+                  <div className="relative">
+                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                      <Clock className="h-5 w-5 text-gray-400" />
+                    </div>
+                    <input
+                      type="time"
+                      name="openingTime"
+                      value={messData.openingTime}
+                      onChange={handleMessDataChange}
+                      className="pl-10 w-full input"
+                    />
+                  </div>
+                </div>
+                
+                <div className="mb-4">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Closing Time</label>
+                  <div className="relative">
+                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                      <Clock className="h-5 w-5 text-gray-400" />
+                    </div>
+                    <input
+                      type="time"
+                      name="closingTime"
+                      value={messData.closingTime}
+                      onChange={handleMessDataChange}
+                      className="pl-10 w-full input"
+                    />
+                  </div>
+                </div>
+              </div>
+              
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-gray-700 mb-1">Days Open</label>
+                <div className="flex flex-wrap gap-2">
+                  {['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'].map(day => (
+                    <button
+                      key={day}
+                      type="button"
+                      onClick={() => handleDayToggle(day)}
+                      className={`px-3 py-1 rounded-full text-sm ${messData.daysOpen.includes(day) ? 'bg-primary-500 text-white' : 'bg-gray-200 text-gray-700'}`}
+                    >
+                      {day.charAt(0).toUpperCase() + day.slice(1)}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-gray-700 mb-1">Contact Phone*</label>
+                <div className="relative">
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                    <Phone className="h-5 w-5 text-gray-400" />
+                  </div>
+                  <input
+                    type="tel"
+                    name="contactPhone"
+                    value={messData.contactPhone}
+                    onChange={handleMessDataChange}
+                    className="pl-10 w-full input"
+                    placeholder="Contact phone number"
+                    required
+                  />
+                </div>
+              </div>
+              
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-gray-700 mb-1">Contact Email</label>
+                <div className="relative">
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                    <Mail className="h-5 w-5 text-gray-400" />
+                  </div>
+                  <input
+                    type="email"
+                    name="contactEmail"
+                    value={messData.contactEmail}
+                    onChange={handleMessDataChange}
+                    className="pl-10 w-full input"
+                    placeholder="Contact email (if different from account)"
+                  />
+                </div>
+              </div>
+              
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-gray-700 mb-1">Cuisine Types</label>
+                <div className="flex items-center">
+                  <div className="relative flex-grow">
+                    <input
+                      type="text"
+                      name="newCuisineType"
+                      value={messData.newCuisineType}
+                      onChange={handleMessDataChange}
+                      className="w-full input"
+                      placeholder="Add cuisine type"
+                    />
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleAddCuisineType}
+                    className="ml-2 p-2 bg-primary-500 text-white rounded-md hover:bg-primary-600"
+                  >
+                    <Plus className="h-5 w-5" />
+                  </button>
+                </div>
+                <div className="flex flex-wrap gap-2 mt-2">
+                  {messData.cuisineTypes.map((cuisine, index) => (
+                    <span key={index} className="px-3 py-1 bg-gray-200 text-gray-700 rounded-full text-sm">
+                      {cuisine}
+                    </span>
+                  ))}
+                </div>
+              </div>
+              
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-gray-700 mb-1">Special Features</label>
+                <div className="flex items-center">
+                  <div className="relative flex-grow">
+                    <input
+                      type="text"
+                      name="newSpecialFeature"
+                      value={messData.newSpecialFeature}
+                      onChange={handleMessDataChange}
+                      className="w-full input-field"
+                      placeholder="Add special feature"
+                    />
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleAddSpecialFeature}
+                    className="ml-2 p-2 bg-primary-500 text-white rounded-md hover:bg-primary-600"
+                  >
+                    <Plus className="h-5 w-5" />
+                  </button>
+                </div>
+                <div className="flex flex-wrap gap-2 mt-2">
+                  {messData.specialFeatures.map((feature, index) => (
+                    <span key={index} className="px-3 py-1 bg-gray-200 text-gray-700 rounded-full text-sm">
+                      {feature}
+                    </span>
+                  ))}
+                </div>
+              </div>
+              
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-gray-700 mb-1">Dietary Options</label>
+                <div className="flex flex-wrap gap-2">
+                  {['vegetarian', 'non-vegetarian', 'vegan', 'jain', 'gluten-free'].map(option => (
+                    <button
+                      key={option}
+                      type="button"
+                      onClick={() => handleDietaryOptionToggle(option)}
+                      className={`px-3 py-1 rounded-full text-sm ${messData.dietaryOptions.includes(option) ? 'bg-primary-500 text-white' : 'bg-gray-200 text-gray-700'}`}
+                    >
+                      {option.charAt(0).toUpperCase() + option.slice(1)}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-gray-700 mb-1">Subscription Plans</label>
+                {messData.subscriptionPlans.map((plan, index) => (
+                  <div key={index} className="mb-4 p-4 border border-gray-200 rounded-md">
+                    <div className="font-medium">{plan.name} Plan</div>
+                    <div className="text-sm text-gray-500 mb-2">{plan.durationDays} days</div>
+                    <div className="mb-2">
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Price*</label>
+                      <div className="relative">
+                        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                          <DollarSign className="h-5 w-5 text-gray-400" />
+                        </div>
+                        <input
+                          type="number"
+                          value={plan.price}
+                          onChange={(e) => handleSubscriptionPlanChange(index, 'price', e.target.value)}
+                          className="pl-10 w-full input"
+                          placeholder="0.00"
+                          min="0"
+                          step="0.01"
+                          required
+                        />
+                      </div>
+                    </div>
+                    <div className="mb-2">
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
+                      <textarea
+                        value={plan.description}
+                        onChange={(e) => handleSubscriptionPlanChange(index, 'description', e.target.value)}
+                        className="w-full input"
+                        placeholder="Plan description"
+                        rows="2"
+                      />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* Name Field */}
           <div>

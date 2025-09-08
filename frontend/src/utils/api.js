@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5001/api';
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5002/api';
 
 const api = axios.create({
   baseURL: API_URL,
@@ -51,17 +51,24 @@ export const orderAPI = {
   getMyOrders: () => api.get('/orders/my'),
   getProviderOrders: () => api.get('/orders/provider'),
   updateOrderStatus: (id, status) => api.patch(`/orders/${id}/status`, { status }),
+  updatePaymentStatus: (id, paymentStatus, amountPaid) => 
+    api.patch(`/orders/${id}/payment-status`, { paymentStatus, amountPaid }),
   requestAbsence: (orderId, absenceData) => api.post(`/orders/${orderId}/absence`, absenceData),
   updateAbsenceStatus: (orderId, absenceId, status) => 
     api.patch(`/orders/${orderId}/absence/${absenceId}`, { status }),
   getProviderAbsences: () => api.get('/orders/absences/provider'),
+  markAttendance: (orderId, date, isPresent) => 
+    api.post(`/orders/${orderId}/attendance`, { date, isPresent }),
+  getCustomerAttendance: (customerId) => api.get(`/orders/attendance/${customerId}`),
+  getDailyAttendance: (messId, date) => api.get(`/orders/daily-attendance/${messId}`, { params: { date } }),
 };
 
 // Notification API calls
 export const notificationAPI = {
   getNotifications: () => api.get('/notifications'),
   markAsRead: (id) => api.post(`/notifications/${id}/read`),
-
+  createNotification: (data) => api.post('/notifications', data),
+  respondToSubscription: (data) => api.post('/notifications/subscription-response', data),
 };
 
 export default api;

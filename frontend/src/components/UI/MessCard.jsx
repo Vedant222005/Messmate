@@ -1,7 +1,17 @@
 import React from 'react';
-import { Star, MapPin, DollarSign, Users } from 'lucide-react';
+import { Star, MapPin, DollarSign } from 'lucide-react';
 
-const MessCard = ({ mess, onSubscribe, showSubscribeButton = true }) => {
+// Card used in lists. For Explore section, today's menu stays visible here.
+// For subscribed messes, details (payment/attendance/full menu) should be shown in a separate popup/card.
+const MessCard = ({ mess, onSubscribe, onViewDetails, showSubscribeButton = true, showTodaysMenu = true }) => {
+  // Determine today's menu if menu items carry dayOfWeek
+  const today = new Date().toLocaleDateString('en-US', { weekday: 'long' }).toLowerCase();
+  const menuToShow = Array.isArray(mess.menu)
+    ? mess.menu
+        .filter((item) => !item.dayOfWeek || item.dayOfWeek.toLowerCase() === today)
+        .slice(0, 3)
+    : [];
+
   return (
     <div className="card p-6">
       <div className="relative">
@@ -36,22 +46,24 @@ const MessCard = ({ mess, onSubscribe, showSubscribeButton = true }) => {
         </div>
       </div>
       
-      {/* Menu Preview */}
-      <div className="mb-4">
-        <h4 className="font-medium text-gray-800 mb-2">Today's Menu</h4>
-        <div className="grid grid-cols-3 gap-2">
-          {mess.menu.slice(0, 3).map((item, index) => (
-            <div key={index} className="text-center">
-              <img
-                src={item.image}
-                alt={item.dish}
-                className="w-full h-12 object-cover rounded-md mb-1"
-              />
-              <p className="text-xs text-gray-600 truncate">{item.dish}</p>
-            </div>
-          ))}
+      {/* Today's Menu Preview (visible in Explore cards) */}
+      {showTodaysMenu && (
+        <div className="mb-4">
+          <h4 className="font-medium text-gray-800 mb-2">Today's Menu</h4>
+          <div className="grid grid-cols-3 gap-2">
+            {menuToShow.map((item, index) => (
+              <div key={index} className="text-center">
+                <img
+                  src={item.image}
+                  alt={item.dish}
+                  className="w-full h-12 object-cover rounded-md mb-1"
+                />
+                <p className="text-xs text-gray-600 truncate">{item.dish}</p>
+              </div>
+            ))}
+          </div>
         </div>
-      </div>
+      )}
       
       {showSubscribeButton && !mess.isSubscribed && (
         <button
@@ -63,7 +75,7 @@ const MessCard = ({ mess, onSubscribe, showSubscribeButton = true }) => {
       )}
       
       {mess.isSubscribed && (
-        <button className="w-full btn btn-secondary">
+        <button className="w-full btn btn-secondary" onClick={() => onViewDetails && onViewDetails(mess)}>
           View Details
         </button>
       )}

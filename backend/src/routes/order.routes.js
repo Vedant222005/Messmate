@@ -9,12 +9,23 @@ const router = express.Router();
 // Customer creates an order/subscription
 router.post('/', requireAuth, requireRole('customer'), async (req, res, next) => {
   try {
-    const { messId, quantity = 1, notes, subscriptionType = 'daily', subscriptionEndDate } = req.body;
+    const { messId, quantity = 1, notes, subscriptionType = 'daily', subscriptionPlanId } = req.body;
     const mess = await Mess.findById(messId);
     if (!mess || !mess.isActive) return res.status(404).json({ message: 'Mess not available' });
 
+    // Find the selected subscription plan
+    const subscriptionPlan = mess.subscriptionPlans.id(subscriptionPlanId);
+    if (!subscriptionPlan) return res.status(400).json({ message: 'Invalid subscription plan' });
+
     const pricePerMeal = mess.pricePerMeal;
-    const totalPrice = pricePerMeal * Number(quantity);
+    const totalPrice = subscriptionPlan.price * Number(quantity);
+    const totalDays = subscriptionPlan.durationDays * Number(quantity);
+    
+    // Calculate subscription end date
+    const startDate = new Date();
+    const endDate = new Date(startDate);
+    endDate.setDate(startDate.getDate() + totalDays);
+
     const order = await Order.create({
       customer: req.user._id,
       mess: mess._id,
@@ -23,18 +34,82 @@ router.post('/', requireAuth, requireRole('customer'), async (req, res, next) =>
       totalPrice,
       notes,
       subscriptionType,
-      subscriptionEndDate
+      subscriptionStartDate: startDate,
+      subscriptionEndDate: endDate,
+      totalDays,
+      daysRemaining: totalDays,
+      amountDue: totalPrice
     });
 
     // Notify provider
     await Notification.create({
       user: mess.provider,
-      title: 'New Subscription',
-      message: `New ${subscriptionType} subscription for ${quantity} meal(s) at ${mess.name}`,
-      metadata: { orderId: order._id }
+      title: 'New Subscription Request',
+      message: `New ${subscriptionPlan.name} subscription request for ${quantity} meal(s) at ${mess.name}`,
+      metadata: { orderId: order._id, type: 'subscription_request' }
     });
 
     res.status(201).json(order);
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Provider gets pending subscription requests for their mess
+router.get('/pending-subscriptions', requireAuth, requireRole('provider'), async (req, res, next) => {
+  try {
+    // Find all messes owned by this provider
+    const messes = await Mess.find({ provider: req.user._id }).select('_id');
+    const messIds = messes.map(mess => mess._id);
+    
+    // Find all pending orders for these messes
+    const pendingOrders = await Order.find({
+      mess: { $in: messIds },
+      status: 'pending'
+    }).populate('customer', 'name email phone')
+      .populate('mess', 'name address')
+      .sort({ createdAt: -1 });
+    
+    res.json(pendingOrders);
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Provider approves or rejects subscription request
+router.patch('/:id/approval', requireAuth, requireRole('provider'), async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const { status } = req.body;
+    
+    if (!['approved', 'rejected'].includes(status)) {
+      return res.status(400).json({ message: 'Invalid status' });
+    }
+    
+    const order = await Order.findById(id).populate('mess');
+    if (!order) return res.status(404).json({ message: 'Order not found' });
+    
+    // Verify the provider owns this mess
+    if (order.mess.provider.toString() !== req.user._id.toString()) {
+      return res.status(403).json({ message: 'Not authorized' });
+    }
+    
+    // Update order status
+    order.status = status;
+    if (status === 'approved') {
+      order.status = 'active'; // Set to active immediately when approved
+    }
+    await order.save();
+    
+    // Notify customer
+    await Notification.create({
+      user: order.customer,
+      title: `Subscription ${status === 'approved' ? 'Approved' : 'Rejected'}`,
+      message: `Your subscription to ${order.mess.name} has been ${status === 'approved' ? 'approved' : 'rejected'}`,
+      metadata: { orderId: order._id, type: 'subscription_response' }
+    });
+    
+    res.json(order);
   } catch (error) {
     next(error);
   }
@@ -44,7 +119,7 @@ router.post('/', requireAuth, requireRole('customer'), async (req, res, next) =>
 router.get('/my', requireAuth, requireRole('customer'), async (req, res, next) => {
   try {
     const orders = await Order.find({ customer: req.user._id })
-      .populate('mess', 'name pricePerMeal provider')
+      .populate('mess', 'name pricePerMeal provider imageUrl address')
       .sort({ createdAt: -1 });
     res.json(orders);
   } catch (error) {
@@ -87,6 +162,47 @@ router.patch('/:id/status', requireAuth, requireRole('provider'), async (req, re
       user: order.customer,
       title: 'Order Update',
       message: `Your order for ${order.quantity} meal(s) is now ${status}`,
+      metadata: { orderId: order._id }
+    });
+
+    res.json(order);
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Provider updates payment status
+router.patch('/:id/payment-status', requireAuth, requireRole('provider'), async (req, res, next) => {
+  try {
+    const { paymentStatus, amountPaid } = req.body;
+    const allowed = ['unpaid', 'partially_paid', 'paid'];
+    if (!allowed.includes(paymentStatus)) return res.status(400).json({ message: 'Invalid payment status' });
+
+    const order = await Order.findById(req.params.id).populate('mess');
+    if (!order) return res.status(404).json({ message: 'Order not found' });
+    if (String(order.mess.provider) !== String(req.user._id)) {
+      return res.status(403).json({ message: 'Forbidden' });
+    }
+
+    order.paymentStatus = paymentStatus;
+    if (amountPaid !== undefined) {
+      order.amountPaid = Number(amountPaid);
+      order.amountDue = order.totalPrice - order.amountPaid;
+    }
+    
+    // If fully paid, set amountDue to 0
+    if (paymentStatus === 'paid') {
+      order.amountPaid = order.totalPrice;
+      order.amountDue = 0;
+    }
+    
+    await order.save();
+
+    // Notify customer
+    await Notification.create({
+      user: order.customer,
+      title: 'Payment Status Update',
+      message: `Your payment status for ${order.mess.name} has been updated to ${paymentStatus.replace('_', ' ')}`,
       metadata: { orderId: order._id }
     });
 

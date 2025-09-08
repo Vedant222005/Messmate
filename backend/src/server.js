@@ -46,7 +46,7 @@ app.use((err, req, res, next) => {
   res.status(status).json({ message: err.message || 'Internal Server Error' });
 });
 
-const PORT = process.env.PORT || 5000;
+const PORT = process.env.PORT || 5002;
 
 connectToDatabase()
   .then(() => {
